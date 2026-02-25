@@ -123,6 +123,99 @@ classDiagram
 - **BasketService**: AddItemToBasket, SetQuantities, TransferBasketAsync, DeleteBasketAsync
 - **OrderService**: CreateOrderAsync (from basket + address)
 
+### Logical Interaction Flows
+
+The following sequence diagrams show domain-level interactions between entities and services. These complement the process-view diagrams, which describe physical request flows.
+
+#### Add Item to Basket
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant BasketService
+    participant Basket
+    participant BasketItem
+
+    Caller->>+BasketService: AddItemToBasket(username, catalogItemId, price, quantity)
+    BasketService->>BasketService: Load or create Basket (by buyer ID)
+    BasketService->>+Basket: AddItem(catalogItemId, price, quantity)
+    alt Item not in basket
+        Basket->>BasketItem: new BasketItem(catalogItemId, quantity, unitPrice)
+    else Item already in basket
+        Basket->>BasketItem: AddQuantity(quantity)
+    end
+    Basket-->>-BasketService: (void)
+    BasketService->>BasketService: Persist basket
+    BasketService-->>-Caller: Basket
+```
+
+#### Checkout (Create Order)
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant OrderService
+    participant Basket
+    participant Order
+    participant OrderItem
+    participant CatalogItemOrdered
+
+    Caller->>+OrderService: CreateOrderAsync(basketId, address)
+    OrderService->>OrderService: Load Basket (BasketWithItemsSpecification)
+    OrderService->>OrderService: Load CatalogItems (CatalogItemsSpecification)
+    loop For each basket item
+        OrderService->>CatalogItemOrdered: new (from CatalogItem snapshot)
+        OrderService->>OrderItem: new (itemOrdered, unitPrice, quantity)
+    end
+    OrderService->>Order: new Order(buyerId, address, orderItems)
+    OrderService->>OrderService: Persist order
+    OrderService-->>-Caller: (void)
+```
+
+#### Basket Transfer on Login
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant BasketService
+    participant AnonymousBasket as Basket (anonymous)
+    participant UserBasket as Basket (user)
+    participant BasketItem
+
+    Caller->>+BasketService: TransferBasketAsync(anonymousId, userName)
+    BasketService->>AnonymousBasket: Load (BasketWithItemsSpecification)
+    opt Anonymous basket exists
+        BasketService->>UserBasket: Load or create (BasketWithItemsSpecification)
+        loop For each item in anonymous basket
+            BasketService->>UserBasket: AddItem(catalogItemId, unitPrice, quantity)
+            UserBasket->>BasketItem: new or AddQuantity
+        end
+        BasketService->>UserBasket: Persist
+        BasketService->>AnonymousBasket: Delete
+    end
+    BasketService-->>-Caller: (void)
+```
+
+#### Update Basket Quantities
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant BasketService
+    participant Basket
+    participant BasketItem
+
+    Caller->>+BasketService: SetQuantities(basketId, quantities)
+    BasketService->>Basket: Load (BasketWithItemsSpecification)
+    loop For each basket item
+        BasketService->>BasketItem: SetQuantity(quantity)
+    end
+    BasketService->>Basket: RemoveEmptyItems()
+    Basket->>Basket: Remove items with quantity 0
+    BasketService->>BasketService: Persist basket
+    BasketService-->>-Caller: Basket
+```
+
 ### Exceptions
 
 - `EmptyBasketOnCheckoutException` – basket has no items at checkout

@@ -16,31 +16,35 @@
 ### Preconditions
 
 - System is operational and catalog database is accessible
-- Application server is running
 
 ### Basic Flow
 
 1. Shopper navigates to the store home page
-2. System loads catalog items from the catalog repository, filtered by brand and type if specified, with pagination
+2. System loads catalog items with pagination
 3. System loads available brands and types for filter dropdowns
 4. System displays the catalog with product cards (name, image, price), filter controls, and pagination
-5. Shopper may optionally select brand and/or type filters and submit to refine results
-6. Shopper may navigate between pages of results
 
 ### Alternative Flows
 
-#### A1: No Results Match Filters
+#### A1: Shopper Applies Filters
 
-- **Trigger**: In step 2, no catalog items match the applied filters
+- **Trigger**: After step 4, shopper selects brand and/or type filters and submits
 - **Steps**:
-  1. System returns empty catalog list
-  2. System displays "THERE ARE NO RESULTS THAT MATCH YOUR SEARCH"
+  1. Shopper selects filters and submits
+  2. System reloads catalog with applied filters (resume basic flow at step 2)
+  3. System displays filtered results; if no items match, system displays "THERE ARE NO RESULTS THAT MATCH YOUR SEARCH"
+
+#### A2: Shopper Navigates to Another Page
+
+- **Trigger**: After step 4, shopper requests a different page of results
+- **Steps**:
+  1. Shopper selects page
+  2. System reloads catalog for requested page (resume basic flow at step 2)
+  3. System displays the requested page of results
 
 ### Notes
 
-- Catalog uses in-memory caching when configured (CachedCatalogViewModelService)
-- Items per page is configurable (Constants.ITEMS_PER_PAGE)
-- Picture URIs are composed via IUriComposer (base URL + path)
+- Code mapping: see Summary table
 
 ---
 
@@ -52,8 +56,6 @@
 ### Preconditions
 
 - System is operational and database is accessible
-- Catalog item exists and is available
-- Shopper has a basket identifier (cookie for anonymous users, username for authenticated users)
 
 ### Basic Flow
 
@@ -81,9 +83,7 @@
 
 ### Notes
 
-- Anonymous shoppers receive a GUID-based basket cookie; authenticated users use their username as buyer ID
-- Basket transfer occurs when an anonymous user logs in (IBasketService.TransferBasketAsync)
-- Quantity defaults to 1 when adding
+- Code mapping: see Summary table
 
 ---
 
@@ -95,7 +95,6 @@
 ### Preconditions
 
 - System is operational and database is accessible
-- Shopper has a basket identifier (cookie or authenticated session)
 
 ### Basic Flow
 
@@ -103,12 +102,10 @@
 2. System retrieves or creates a basket for the shopper
 3. System loads basket items with catalog details (name, image, price)
 4. System displays basket with items, quantities, line totals, and grand total
-5. Shopper may update quantities or proceed to checkout
 
 ### Notes
 
-- Empty basket displays with option to continue shopping
-- Basket component also appears in layout for quick summary
+- Code mapping: see Summary table
 
 ---
 
@@ -120,14 +117,12 @@
 ### Preconditions
 
 - System is operational and database is accessible
-- Shopper has a non-empty basket
-- Shopper is on the basket page
 
 ### Basic Flow
 
 1. Shopper modifies quantity inputs for one or more basket items
 2. Shopper submits the update form
-3. System validates model state
+3. System validates submitted data
 4. System retrieves the basket
 5. System updates quantities for each item; items with quantity 0 are removed
 6. System persists the basket
@@ -135,9 +130,9 @@
 
 ### Alternative Flows
 
-#### A1: Model State Invalid
+#### A1: Validation Fails
 
-- **Trigger**: In step 3, model validation fails
+- **Trigger**: In step 3, submitted data is invalid
 - **Steps**:
   1. System does not persist changes
   2. System re-displays basket with validation errors
@@ -146,12 +141,11 @@
 
 - **Trigger**: In step 4, basket does not exist
 - **Steps**:
-  1. System returns Result.NotFound; no update is performed
+  1. System does not persist changes; no update is performed
 
 ### Notes
 
-- Quantity of 0 removes the item (RemoveEmptyItems)
-- Unit tests verify update to 0 empties basket (IndexTest.OnPostUpdateTo0EmptyBasket)
+- Code mapping: see Summary table
 
 ---
 
@@ -163,8 +157,6 @@
 ### Preconditions
 
 - System is operational and database is accessible
-- Shopper is authenticated
-- Shopper has a non-empty basket
 
 ### Basic Flow
 
@@ -182,25 +174,22 @@
 
 #### A1: Empty Basket on Checkout
 
-- **Trigger**: In step 6, basket has no items (EmptyBasketOnCheckoutException)
+- **Trigger**: In step 6, basket has no items
 - **Steps**:
-  1. System catches EmptyBasketOnCheckoutException
-  2. System logs warning
-  3. System redirects shopper to basket page
+  1. System redirects shopper to basket page
 
 #### A2: Unauthenticated Access
 
-- **Trigger**: Shopper navigates to checkout without being signed in
+- **Trigger**: In step 1, shopper navigates to checkout without being signed in
 - **Steps**:
-  1. System redirects to login page (Authorize attribute on Checkout page)
+  1. System redirects shopper to login page
   2. After login, shopper may return to checkout
 
-#### A3: Model State Invalid
+#### A3: Validation Fails
 
-- **Trigger**: In step 5, model validation fails
+- **Trigger**: In step 5, submitted data is invalid
 - **Steps**:
-  1. System returns BadRequest
-  2. Checkout page re-displays with errors
+  1. System re-displays checkout form with errors
 
 ### Exception Flows
 
@@ -208,9 +197,7 @@
 
 ### Notes
 
-- Shipping address is currently hardcoded in implementation ("123 Main St.", Kent, OH, etc.)—simplification for reference app
-- No payment processing is implemented; "Pay Now" completes the order immediately
-- Order is created with buyer ID from authenticated user
+- Code mapping: see Summary table
 
 ---
 
@@ -222,27 +209,24 @@
 ### Preconditions
 
 - System is operational and database is accessible
-- Shopper is authenticated
 
 ### Basic Flow
 
-1. Shopper navigates to "My Orders" (OrderController.MyOrders)
-2. System retrieves orders for the authenticated user (CustomerOrdersSpecification)
+1. Shopper navigates to "My Orders"
+2. System retrieves orders for the authenticated user
 3. System displays list of orders with order details (date, items, total)
-4. Shopper may select an order to view details
 
 ### Alternative Flows
 
 #### A1: Unauthenticated Access
 
-- **Trigger**: Shopper navigates without being signed in
+- **Trigger**: In step 1, shopper navigates without being signed in
 - **Steps**:
-  1. System redirects to login page (Authorize on OrderController)
+  1. System redirects shopper to login page
 
 ### Notes
 
-- Uses MediatR (GetMyOrders / GetMyOrdersHandler)
-- Guard.Against.Null ensures User.Identity.Name is present
+- Code mapping: see Summary table
 
 ---
 
@@ -254,23 +238,24 @@
 ### Preconditions
 
 - System is operational and database is accessible
-- Shopper is authenticated
-- Order exists and belongs to the shopper
 
 ### Basic Flow
 
-1. Shopper navigates to order detail (OrderController.Detail with orderId)
+1. Shopper navigates to order detail page
 2. System retrieves order with items for the authenticated user
 3. System displays order details (address, items, quantities, prices, total)
-4. If order not found or does not belong to user, system returns BadRequest
 
 ### Alternative Flows
 
 #### A1: Order Not Found or Unauthorized
 
-- **Trigger**: In step 2, order does not exist or buyer ID does not match
+- **Trigger**: In step 2, order does not exist or does not belong to the user
 - **Steps**:
-  1. System returns BadRequest with message "No such order found for this user."
+  1. System displays error message "No such order found for this user."
+
+### Notes
+
+- Code mapping: see Summary table
 
 ---
 
@@ -282,7 +267,6 @@
 ### Preconditions
 
 - System is operational and identity database is accessible
-- User account exists with confirmed email (for standard login)
 
 ### Basic Flow
 
@@ -291,7 +275,6 @@
 3. Shopper enters credentials and submits
 4. System validates credentials against identity store
 5. System signs in user and redirects to home page
-6. If anonymous basket exists, system transfers it to user basket (on next basket operation)
 
 ### Alternative Flows
 
@@ -303,17 +286,23 @@
 
 #### A2: Two-Factor Authentication Enabled
 
-- **Trigger**: User has 2FA enabled
+- **Trigger**: In step 4, user has 2FA enabled
 - **Steps**:
   1. System prompts for authenticator code
   2. User provides code
   3. System validates and completes sign-in
 
+#### A3: Anonymous Basket Transfer
+
+- **Trigger**: In step 5, user had items in an anonymous basket before signing in
+- **Steps**:
+  1. System merges anonymous basket items into user basket
+  2. System removes anonymous basket
+  3. System redirects user to home page
+
 ### Notes
 
-- Uses ASP.NET Core Identity with cookie authentication
-- Default demo credentials: demouser@microsoft.com / Pass@word1
-- Functional tests cover ReturnsSignInScreenOnGet, ReturnsSuccessfulSignInOnPostWithValidCredentials
+- Code mapping: see Summary table
 
 ---
 
@@ -332,13 +321,20 @@
 2. System displays registration form (email, password, confirm password)
 3. Shopper submits valid registration data
 4. System creates user account
-5. System may require email confirmation depending on configuration
-6. System redirects user accordingly (login or confirmation message)
+5. System redirects user to login or home page
+
+### Alternative Flows
+
+#### A1: Email Confirmation Required
+
+- **Trigger**: In step 4, system is configured to require email confirmation
+- **Steps**:
+  1. System sends confirmation email
+  2. System redirects user with message to check email
 
 ### Notes
 
-- Uses ASP.NET Core Identity RegisterModel
-- Email confirmation flow via ConfirmEmail page
+- Code mapping: see Summary table
 
 ---
 
@@ -350,11 +346,10 @@
 ### Preconditions
 
 - System is operational and identity database is accessible
-- User is authenticated
 
 ### Basic Flow
 
-1. User navigates to Manage/MyAccount
+1. User navigates to account profile page
 2. System loads current user profile (username, email, phone, email confirmed status)
 3. System displays profile form
 4. User updates email and/or phone number and submits
@@ -365,33 +360,30 @@
 
 #### A1: Email Update Fails
 
-- **Trigger**: In step 5, SetEmailAsync fails
+- **Trigger**: In step 5, email update cannot be completed
 - **Steps**:
-  1. System throws ApplicationException with error details
+  1. System redisplays form with error message
 
 #### A2: Phone Update Fails
 
-- **Trigger**: In step 5, SetPhoneNumberAsync fails
+- **Trigger**: In step 5, phone update cannot be completed
 - **Steps**:
-  1. System throws ApplicationException with error details
+  1. System redisplays form with error message
 
 ### Notes
 
-- Functional test UpdatePhoneNumberProfile verifies phone number update
-- User may also send verification email, change password, manage 2FA, external logins (ManageController)
+- Code mapping: see Summary table
 
 ---
 
 ## UC-011: Create Catalog Item (Admin)
 
 **Actor**: Admin  
-**Description**: An administrator creates a new catalog item via the Blazor Admin UI.
+**Description**: An administrator creates a new catalog item via the Admin UI.
 
 ### Preconditions
 
 - System is operational and database is accessible
-- Admin is authenticated with admin role (JWT token with admin claim)
-- Public API is running (Blazor Admin communicates with PublicApi)
 
 ### Basic Flow
 
@@ -399,31 +391,29 @@
 2. Admin clicks Create
 3. Admin enters catalog item details (name, description, price, brand, type, picture URI)
 4. Admin submits
-5. Blazor Admin sends POST to PublicApi /api/catalog-items
-6. PublicApi validates request (name, price, image file if provided)
-7. System creates catalog item in repository
+5. Admin application submits create request to system
+6. System validates request (name, price, image if provided)
+7. System creates catalog item
 8. System returns created item with ID
 9. Admin sees updated catalog list
 
 ### Alternative Flows
 
-#### A1: Unauthorized (Normal User)
+#### A1: Unauthorized
 
-- **Trigger**: In step 6, user token does not have admin role
+- **Trigger**: In step 6, user does not have admin role
 - **Steps**:
-  1. PublicApi returns 401 Unauthorized
+  1. System denies request; admin sees unauthorized message
 
 #### A2: Validation Failure
 
 - **Trigger**: In step 6, required fields missing or invalid (e.g., negative price)
 - **Steps**:
-  1. PublicApi returns 400 Bad Request with validation errors
+  1. System returns validation errors; form redisplays with errors
 
 ### Notes
 
-- CreateCatalogItemEndpoint in PublicApi
-- Blazor Admin uses ICatalogItemService (HttpService to PublicApi)
-- Integration test: ReturnsSuccessGivenValidNewItemAndAdminUserToken
+- Code mapping: see Summary table
 
 ---
 
@@ -435,8 +425,6 @@
 ### Preconditions
 
 - System is operational and database is accessible
-- Admin is authenticated with admin role
-- Catalog item exists
 
 ### Basic Flow
 
@@ -444,8 +432,8 @@
 2. Admin clicks Edit on a catalog item
 3. Admin modifies fields (name, description, price, brand, type, picture)
 4. Admin submits
-5. Blazor Admin sends PUT to PublicApi /api/catalog-items
-6. PublicApi loads existing item, applies updates, persists
+5. Admin application submits update request to system
+6. System loads existing item, applies updates, persists
 7. System returns updated item
 8. Admin sees updated catalog list
 
@@ -453,9 +441,13 @@
 
 #### A1: Catalog Item Not Found
 
-- **Trigger**: In step 6, catalog item ID does not exist
+- **Trigger**: In step 6, catalog item does not exist
 - **Steps**:
-  1. PublicApi returns 404 Not Found
+  1. System returns not found; admin sees error message
+
+### Notes
+
+- Code mapping: see Summary table
 
 ---
 
@@ -467,74 +459,67 @@
 ### Preconditions
 
 - System is operational and database is accessible
-- Admin is authenticated with admin role
-- Catalog item exists
 
 ### Basic Flow
 
 1. Admin navigates to admin catalog list
 2. Admin clicks Delete on a catalog item
 3. Admin confirms deletion
-4. Blazor Admin sends DELETE to PublicApi /api/catalog-items/{id}
-5. PublicApi deletes catalog item from repository
+4. Admin application submits delete request to system
+5. System deletes catalog item
 6. Admin sees updated catalog list
 
 ### Alternative Flows
 
 #### A1: Catalog Item Not Found
 
-- **Trigger**: In step 5, catalog item ID does not exist
+- **Trigger**: In step 5, catalog item does not exist
 - **Steps**:
-  1. PublicApi returns 404 Not Found
+  1. System returns not found; admin sees error message
 
 ### Notes
 
-- Integration tests: ReturnsSuccessGivenValidIdAndAdminUserToken, ReturnsNotFoundGivenInvalidIdAndAdminUserToken
+- Code mapping: see Summary table
 
 ---
 
 ## UC-014: List Catalog Items (Admin API)
 
-**Actor**: Admin (Blazor Admin application)  
+**Actor**: Admin (via Admin application)  
 **Description**: Retrieve paginated catalog items for admin display.
 
 ### Preconditions
 
 - System is operational and database is accessible
-- Public API is running
 
 ### Basic Flow
 
-1. Blazor Admin requests GET /api/catalog-items with optional page index and page size
-2. PublicApi applies CatalogFilterPaginatedSpecification
-3. System returns paged list of catalog items (ID, name, description, price, picture URI, brand, type)
-4. Blazor Admin displays catalog list
+1. Admin application requests catalog list with optional page index and page size
+2. System returns paged list of catalog items (ID, name, description, price, picture URI, brand, type)
+3. Admin application displays catalog list
 
 ### Notes
 
-- CatalogItemListPagedEndpoint
-- Integration test: ReturnsFirst10CatalogItems, ReturnsCorrectCatalogItemsGivenPageIndex1
+- Code mapping: see Summary table
 
 ---
 
 ## UC-015: Authenticate (Public API)
 
-**Actor**: Blazor Admin (or API client)  
-**Description**: Obtain JWT token for Public API authentication.
+**Actor**: Admin application (or API client)  
+**Description**: Obtain authentication token for Admin API access.
 
 ### Preconditions
 
 - System is operational and identity database is accessible
-- Public API is running
-- User account exists
 
 ### Basic Flow
 
-1. Client sends POST to /api/authenticate with email and password
-2. PublicApi validates credentials via SignInManager
-3. System generates JWT token with user claims (including admin role if applicable)
+1. Client submits email and password
+2. System validates credentials
+3. System generates token with user claims (including admin role if applicable)
 4. System returns token and user info
-5. Client uses token in Authorization header for subsequent API calls
+5. Client uses token for subsequent API calls
 
 ### Alternative Flows
 
@@ -542,12 +527,11 @@
 
 - **Trigger**: In step 2, credentials are invalid
 - **Steps**:
-  1. PublicApi returns 401 Unauthorized
+  1. System denies request; client receives unauthorized response
 
 ### Notes
 
-- AuthenticateEndpoint in PublicApi
-- Integration test: AuthenticateEndpointTest with DataRow for valid/invalid credentials
+- Code mapping: see Summary table
 
 ---
 
