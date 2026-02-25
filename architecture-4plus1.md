@@ -26,29 +26,74 @@ The logical view describes the key abstractions and domain model.
 
 ### Domain Entities (ApplicationCore)
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        DOMAIN MODEL                                       │
-├─────────────────────────────────────────────────────────────────────────┤
-│  CatalogItem (IAggregateRoot)     CatalogBrand    CatalogType            │
-│  - Id, Name, Description          - Id, Brand     - Id, Type             │
-│  - Price, PictureUri                                                      │
-│  - CatalogBrandId, CatalogTypeId                                          │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Basket (IAggregateRoot)          BasketItem                             │
-│  - Id, BuyerId                    - Id, CatalogItemId                    │
-│  - Items: IReadOnlyCollection     - Quantity, UnitPrice                  │
-│  - AddItem(), RemoveEmptyItems()  - AddQuantity(), SetQuantity()         │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Order (IAggregateRoot)           OrderItem       CatalogItemOrdered     │
-│  - Id, BuyerId                    - ItemOrdered   - CatalogItemId        │
-│  - ShipToAddress                  - UnitPrice     - ProductName          │
-│  - OrderItems                     - Units         - PictureUri           │
-├─────────────────────────────────────────────────────────────────────────┤
-│  Address (Value Object)           Buyer           PaymentMethod          │
-│  - Street, City, State            - (present,     - (present,            │
-│  - Country, ZipCode                 minimal use)    minimal use)         │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class CatalogItem {
+        <<IAggregateRoot>>
+        +Id
+        +Name
+        +Description
+        +Price
+        +PictureUri
+        +CatalogBrandId
+        +CatalogTypeId
+    }
+    class CatalogBrand {
+        +Id
+        +Brand
+    }
+    class CatalogType {
+        +Id
+        +Type
+    }
+    class Basket {
+        <<IAggregateRoot>>
+        +Id
+        +BuyerId
+        +Items IReadOnlyCollection
+        +AddItem()
+        +RemoveEmptyItems()
+    }
+    class BasketItem {
+        +Id
+        +CatalogItemId
+        +Quantity
+        +UnitPrice
+        +AddQuantity()
+        +SetQuantity()
+    }
+    class Order {
+        <<IAggregateRoot>>
+        +Id
+        +BuyerId
+        +ShipToAddress
+        +OrderItems
+    }
+    class OrderItem {
+        +ItemOrdered
+        +UnitPrice
+        +Units
+    }
+    class CatalogItemOrdered {
+        +CatalogItemId
+        +ProductName
+        +PictureUri
+    }
+    class Address {
+        <<Value Object>>
+        +Street
+        +City
+        +State
+        +Country
+        +ZipCode
+    }
+    CatalogItem --> CatalogBrand : CatalogBrandId
+    CatalogItem --> CatalogType : CatalogTypeId
+    Basket "1" --> "*" BasketItem : Items
+    BasketItem --> CatalogItem : CatalogItemId
+    Order "1" --> "*" OrderItem : OrderItems
+    OrderItem --> CatalogItemOrdered : ItemOrdered
+    Order --> Address : ShipToAddress
 ```
 
 ### Key Interfaces
@@ -91,31 +136,50 @@ The process view describes runtime behavior, concurrency, and communication.
 
 ### Request Flow: Storefront (Web)
 
-```
-[Browser] ──HTTP──▶ [ASP.NET Core Web]
-                          │
-                          ├─ Cookie Auth (Identity)
-                          ├─ Razor Pages / MVC Controllers
-                          ├─ MediatR (OrderController)
-                          ├─ ViewModel Services (Catalog, Basket)
-                          ├─ ApplicationCore Services (Basket, Order)
-                          └─ EF Core → SQL Server (CatalogContext)
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Web as ASP.NET Core Web
+    participant VM as ViewModel Services
+    participant Core as ApplicationCore
+    participant DB as SQL Server
+
+    Browser->>+Web: HTTP Request
+    Web->>Web: Cookie Auth (Identity)
+    Web->>Web: Razor Pages / MVC Controllers
+    Web->>+VM: Get catalog or basket (ICatalogViewModelService, IBasketViewModelService)
+    VM->>+Core: BasketService, OrderService
+    Core->>+DB: EF Core → CatalogContext
+    DB-->>-Core: Data
+    Core-->>-VM: Result
+    VM-->>-Web: View model
+    Note over Web: MediatR (OrderController)
+    Web-->>-Browser: HTTP Response
 ```
 
 ### Request Flow: Admin (Blazor + PublicApi)
 
-```
-[Browser] ──HTTP──▶ [Web] (serves BlazorAdmin WASM)
-                          │
-[Blazor WASM] ──fetch──▶ [PublicApi] (CORS from Web origin)
-                              │
-                              ├─ JWT Bearer Auth
-                              │
-                              ├─ CatalogItemEndpoints (CRUD)
-                              ├─ CatalogTypeEndpoints, CatalogBrandEndpoints
-                              ├─ AuthEndpoints (login → JWT)
-                              │
-                              └─ EF Core → SQL Server (CatalogContext)
+```mermaid
+sequenceDiagram
+    participant Browser
+    participant Web as Web (serves Blazor WASM)
+    participant Blazor as Blazor WASM
+    participant API as PublicApi
+    participant DB as SQL Server
+
+    Browser->>Web: HTTP GET /admin
+    Web-->>Browser: BlazorAdmin WASM app
+    Browser->>+Blazor: Run app
+    Blazor->>API: POST /api/authenticate (login)
+    API->>API: AuthEndpoints → JWT
+    API-->>Blazor: JWT token
+    Blazor->>+API: fetch (Bearer token) CRUD, CatalogType, CatalogBrand
+    API->>API: JWT Bearer Auth
+    API->>API: CatalogItemEndpoints, CatalogTypeEndpoints, CatalogBrandEndpoints
+    API->>+DB: EF Core → CatalogContext
+    DB-->>-API: Data
+    API-->>-Blazor: JSON Response
+    Blazor-->>Browser: Update UI
 ```
 
 ### Concurrency Model
@@ -130,6 +194,29 @@ The process view describes runtime behavior, concurrency, and communication.
 
 When anonymous user logs in, `TransferBasketAsync` is invoked from `LoginModel.OnPostAsync` (after successful sign-in) via `TransferAnonymousBasketToUserAsync` to merge anonymous basket into user basket and delete anonymous basket.
 
+```mermaid
+sequenceDiagram
+    participant User
+    participant Login as LoginModel
+    participant Transfer as TransferAnonymousBasketToUserAsync
+    participant Basket as IBasketService
+    participant DB as SQL Server
+
+    User->>+Login: POST login (credentials)
+    Login->>Login: SignInManager sign-in
+    Login->>+Transfer: TransferAnonymousBasketToUserAsync
+    Transfer->>+Basket: TransferBasketAsync(anonymousId, userId)
+    Basket->>DB: Load anonymous basket
+    Basket->>DB: Load user basket
+    Basket->>Basket: Merge items (AddItem)
+    Basket->>DB: Delete anonymous basket
+    Basket->>DB: Save user basket
+    DB-->>Basket: OK
+    Basket-->>-Transfer: Done
+    Transfer-->>-Login: Done
+    Login-->>-User: Redirect
+```
+
 ---
 
 ## 3. Development View
@@ -138,47 +225,49 @@ The development view describes the module structure and dependencies.
 
 ### Solution Structure
 
-```
-eShopOnWeb.sln
-├── src/
-│   ├── Web/                 # ASP.NET Core MVC + Razor Pages (storefront)
-│   ├── PublicApi/           # ASP.NET Core Web API (for Blazor Admin)
-│   ├── BlazorAdmin/         # Blazor WebAssembly (admin UI)
-│   ├── BlazorShared/        # Shared models, interfaces (Blazor + API)
-│   ├── ApplicationCore/     # Domain layer (entities, interfaces, services)
-│   └── Infrastructure/      # Data access, identity, implementations
-└── tests/
-    ├── UnitTests/
-    ├── IntegrationTests/
-    ├── FunctionalTests/     # WebApplicationFactory tests
-    └── PublicApiIntegrationTests/
+```mermaid
+C4Container
+    title Solution Structure - eShopOnWeb
+    Container_Boundary(sln, "eShopOnWeb.sln") {
+        Container_Boundary(src, "src/") {
+            Container(web, "Web", "ASP.NET Core MVC + Razor Pages", "Storefront")
+            Container(publicapi, "PublicApi", "ASP.NET Core Web API", "For Blazor Admin")
+            Container(blazoradmin, "BlazorAdmin", "Blazor WebAssembly", "Admin UI")
+            Container(blazorshared, "BlazorShared", "Shared DTOs", "Blazor + API")
+            Container(appcore, "ApplicationCore", "Domain layer", "Entities, interfaces, services")
+            Container(infra, "Infrastructure", "Data access", "EF Core, Identity")
+        }
+        Container_Boundary(tests, "tests/") {
+            Container(unit, "UnitTests")
+            Container(integration, "IntegrationTests")
+            Container(functional, "FunctionalTests", "WebApplicationFactory")
+            Container(apiint, "PublicApiIntegrationTests")
+        }
+    }
 ```
 
 ### Dependency Graph
 
-```
-                    ┌──────────────┐
-                    │     Web      │
-                    └──────┬───────┘
-                           │
-         ┌─────────────────┼─────────────────┐
-         │                 │                 │
-         ▼                 ▼                 ▼
-  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-  │ BlazorAdmin  │  │ Infrastructure│  │ApplicationCore│
-  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-         │                 │                 │
-         │                 └────────┬────────┘
-         │                          │
-         ▼                          │
-  ┌──────────────┐                  │
-  │ BlazorShared │◀─────────────────┘
-  └──────┬───────┘
-         │
-         ▼
-  ┌──────────────┐
-  │ PublicApi    │──▶ Infrastructure, ApplicationCore
-  └──────────────┘
+```mermaid
+C4Component
+    title Project Dependencies
+    Container_Boundary(sln, "eShopOnWeb") {
+        Component(web, "Web", "ASP.NET Core")
+        Component(blazoradmin, "BlazorAdmin", "Blazor WASM")
+        Component(publicapi, "PublicApi", "ASP.NET Core API")
+        Component(infra, "Infrastructure", "EF Core, Identity")
+        Component(appcore, "ApplicationCore", "Domain")
+        Component(blazorshared, "BlazorShared", "DTOs")
+    }
+    Rel(web, blazoradmin, "references")
+    Rel(web, infra, "references")
+    Rel(web, appcore, "references")
+    Rel(blazoradmin, blazorshared, "references")
+    Rel(infra, appcore, "references")
+    Rel(appcore, blazorshared, "references")
+    Rel(publicapi, infra, "references")
+    Rel(publicapi, appcore, "references")
+    Rel(publicapi, blazorshared, "references")
 ```
 
 - **ApplicationCore**: No dependencies on Web, Infrastructure, or Blazor. References BlazorShared for shared types.
@@ -210,19 +299,22 @@ The physical view describes deployment topology.
 
 ### Docker Compose (Local/Dev)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Docker Host                                   │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
-│  │  eshopwebmvc    │  │ eshoppublicapi  │  │   sqlserver     │  │
-│  │  (Web)          │  │ (PublicApi)     │  │ (Azure SQL Edge)│  │
-│  │  port: 5106     │  │ port: 5200      │  │ port: 1433      │  │
-│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘  │
-│           │                    │                    │            │
-│           └────────────────────┴────────────────────┘            │
-│                                │                                 │
-│                     CatalogContext + AppIdentityDbContext        │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+C4Deployment
+    title Docker Compose - Local/Dev
+    Deployment_Node(docker, "Docker Host", "Docker") {
+        Deployment_Node(webnode, "eshopwebmvc", "ASP.NET Core", "port 5106") {
+            Container(web, "Web", "ASP.NET Core MVC + Razor Pages")
+        }
+        Deployment_Node(apinode, "eshoppublicapi", "ASP.NET Core", "port 5200") {
+            Container(api, "PublicApi", "REST API")
+        }
+        Deployment_Node(dbnode, "sqlserver", "Azure SQL Edge", "port 1433") {
+            ContainerDb(db, "Database", "SQL Server", "CatalogContext + AppIdentityDbContext")
+        }
+    }
+    Rel(web, db, "connects to")
+    Rel(api, db, "connects to")
 ```
 
 ### Local Development (without Docker)
@@ -253,6 +345,28 @@ Scenarios tie the four views together by showing how key use cases traverse the 
 
 ### Scenario 1: Shopper Browses Catalog and Adds to Basket
 
+```mermaid
+sequenceDiagram
+    participant Shopper
+    participant Web
+    participant CatalogVM as ICatalogViewModelService
+    participant BasketSvc as IBasketService
+    participant DB as SQL Server
+
+    Shopper->>+Web: GET /
+    Web->>+CatalogVM: Get catalog (filters, pagination)
+    CatalogVM->>DB: CatalogFilterPaginatedSpecification
+    DB-->>CatalogVM: CatalogItem[]
+    CatalogVM-->>-Web: CatalogIndexViewModel
+    Web-->>-Shopper: Products page
+    Shopper->>+Web: POST add to basket
+    Web->>+BasketSvc: AddItemToBasket
+    BasketSvc->>DB: BasketWithItemsSpecification, Save
+    DB-->>BasketSvc: OK
+    BasketSvc-->>-Web: OK
+    Web-->>-Shopper: Redirect to basket
+```
+
 | Step | Logical | Process | Development | Physical |
 |------|---------|---------|-------------|----------|
 | 1 | Shopper requests home page | HTTP GET / | Web Index page, ICatalogViewModelService | Browser → Web |
@@ -263,6 +377,31 @@ Scenarios tie the four views together by showing how key use cases traverse the 
 | 6 | Redirect to basket | BasketViewModelService | Web | Web → Browser |
 
 ### Scenario 2: Authenticated Shopper Checks Out
+
+```mermaid
+sequenceDiagram
+    participant Shopper
+    participant Web
+    participant BasketVM as IBasketViewModelService
+    participant OrderSvc as IOrderService
+    participant BasketSvc as IBasketService
+    participant DB as SQL Server
+
+    Shopper->>+Web: GET checkout (Authorize)
+    Web->>BasketVM: Get basket
+    BasketVM->>DB: Load basket
+    DB-->>BasketVM: Basket
+    BasketVM-->>Web: BasketViewModel
+    Web-->>Shopper: Checkout form
+    Shopper->>+Web: POST Pay Now
+    Web->>+OrderSvc: CreateOrderAsync
+    OrderSvc->>DB: Create order, CatalogItemsSpecification
+    DB-->>OrderSvc: Order
+    OrderSvc-->>-Web: Order
+    Web->>BasketSvc: DeleteBasketAsync
+    BasketSvc->>DB: Delete basket
+    Web-->>-Shopper: Redirect to success
+```
 
 | Step | Logical | Process | Development | Physical |
 |------|---------|---------|-------------|----------|
@@ -275,6 +414,27 @@ Scenarios tie the four views together by showing how key use cases traverse the 
 
 ### Scenario 3: Admin Creates Catalog Item
 
+```mermaid
+sequenceDiagram
+    participant Admin
+    participant Blazor
+    participant API as PublicApi
+    participant DB as SQL Server
+
+    Admin->>+Blazor: Login
+    Blazor->>+API: POST /api/authenticate
+    API->>API: ITokenClaimsService, SignInManager
+    API-->>-Blazor: JWT
+    Admin->>Blazor: Create catalog item form
+    Admin->>+Blazor: Submit
+    Blazor->>+API: POST /api/catalog-items (Bearer)
+    API->>API: CreateCatalogItemEndpoint
+    API->>DB: IRepository.SaveAsync(CatalogItem)
+    DB-->>API: OK
+    API-->>-Blazor: CatalogItemDto
+    Blazor-->>-Admin: Show created item
+```
+
 | Step | Logical | Process | Development | Physical |
 |------|---------|---------|-------------|----------|
 | 1 | Admin logs in via Blazor | POST /api/authenticate | PublicApi AuthenticateEndpoint | Blazor → PublicApi |
@@ -285,6 +445,28 @@ Scenarios tie the four views together by showing how key use cases traverse the 
 | 6 | Return created item | CatalogItemDto | PublicApi + BlazorShared | PublicApi → Blazor |
 
 ### Scenario 4: Anonymous User Logs In (Basket Transfer)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Web
+    participant Login as LoginModel
+    participant BasketSvc as IBasketService
+    participant DB as SQL Server
+
+    User->>Web: Add items (anonymous, GUID buyerId cookie)
+    Web->>BasketSvc: AddItemToBasket
+    BasketSvc->>DB: Save anonymous basket
+    User->>+Login: POST login
+    Login->>Login: SignInManager sign-in
+    Login->>+BasketSvc: TransferBasketAsync(anonymousId, userId)
+    BasketSvc->>DB: Load both baskets
+    BasketSvc->>BasketSvc: Merge items
+    BasketSvc->>DB: Delete anonymous, save user basket
+    DB-->>BasketSvc: OK
+    BasketSvc-->>-Login: Done
+    Login-->>-User: Redirect
+```
 
 | Step | Logical | Process | Development | Physical |
 |------|---------|---------|-------------|----------|
