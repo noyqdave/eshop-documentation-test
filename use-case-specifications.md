@@ -19,28 +19,26 @@
 
 ### Basic Flow
 
-1. Shopper navigates to the store home page
-2. System loads catalog items with pagination
-3. System loads available brands and types for filter dropdowns
-4. System displays the catalog with product cards (name, image, price), filter controls, and pagination
+1. Shopper goes to the store
+2. System displays products with name, image, and price
+3. System displays available brands and types for filtering
+4. Shopper sees products, one page at a time
 
 ### Alternative Flows
 
-#### A1: Shopper Applies Filters
+#### A1: Shopper Narrows Results by Brand or Type
 
-- **Trigger**: After step 4, shopper selects brand and/or type filters and submits
+- **Trigger**: After step 4, shopper applies filters
 - **Steps**:
-  1. Shopper selects filters and submits
-  2. System reloads catalog with applied filters (resume basic flow at step 2)
-  3. System displays filtered results; if no items match, system displays "THERE ARE NO RESULTS THAT MATCH YOUR SEARCH"
+  1. Shopper chooses brand and/or type and applies
+  2. System displays filtered results; if no products match, system displays "THERE ARE NO RESULTS THAT MATCH YOUR SEARCH"
 
-#### A2: Shopper Navigates to Another Page
+#### A2: Shopper Views Another Page of Results
 
-- **Trigger**: After step 4, shopper requests a different page of results
+- **Trigger**: After step 4, shopper wants to see more products
 - **Steps**:
-  1. Shopper selects page
-  2. System reloads catalog for requested page (resume basic flow at step 2)
-  3. System displays the requested page of results
+  1. Shopper goes to another page of results
+  2. System displays the requested page of products
 
 ### Notes
 
@@ -51,7 +49,7 @@
 ## UC-002: Add Item to Basket
 
 **Actor**: Shopper (anonymous or authenticated)  
-**Description**: A shopper adds a catalog item to their shopping basket.
+**Description**: A shopper adds a product to their shopping basket.
 
 ### Preconditions
 
@@ -59,27 +57,33 @@
 
 ### Basic Flow
 
-1. Shopper views a product on the catalog page
-2. Shopper clicks "Add to Basket" on the product
-3. System retrieves or creates a basket for the shopper (by buyer ID from cookie or username)
-4. System loads the catalog item to obtain its price
-5. System adds the item to the basket (or increments quantity if item already in basket)
-6. System persists the basket
-7. System redirects shopper to the basket page
+1. Shopper looks at a product
+2. Shopper requests to add the product to their basket
+3. System retrieves the shopper's basket
+4. System adds the product to the basket at its current price (or increases the quantity if the product is already in the basket)
+5. System saves the basket
+6. System takes shopper to their basket
 
 ### Alternative Flows
 
-#### A1: Catalog Item Not Found
+#### A1: Shopper Has No Basket Yet
 
-- **Trigger**: In step 4, catalog item does not exist
+- **Trigger**: In step 3, shopper has no basket
 - **Steps**:
-  1. System redirects shopper to the catalog home page
+  1. System creates a new basket for the shopper
+  2. Resume basic flow at step 4
 
-#### A2: Invalid Product Details
+#### A2: Product Not Found
 
-- **Trigger**: In step 2, product ID is null or missing
+- **Trigger**: In step 4, product does not exist or cannot be found
 - **Steps**:
-  1. System redirects shopper to the catalog home page
+  1. System takes shopper back to the store
+
+#### A3: Product Cannot Be Identified
+
+- **Trigger**: In step 2, the product selection is invalid
+- **Steps**:
+  1. System takes shopper back to the store
 
 ### Notes
 
@@ -98,10 +102,18 @@
 
 ### Basic Flow
 
-1. Shopper navigates to the basket page
-2. System retrieves or creates a basket for the shopper
-3. System loads basket items with catalog details (name, image, price)
-4. System displays basket with items, quantities, line totals, and grand total
+1. Shopper goes to their basket
+2. System retrieves the shopper's basket
+3. System displays the basket with each item (name, image, price), quantities, line totals, and grand total
+
+### Alternative Flows
+
+#### A1: Shopper Has No Basket Yet
+
+- **Trigger**: In step 2, shopper has no basket
+- **Steps**:
+  1. System creates a new empty basket for the shopper
+  2. System displays the empty basket with option to continue shopping
 
 ### Notes
 
@@ -112,7 +124,7 @@
 ## UC-004: Update Basket Quantities
 
 **Actor**: Shopper (anonymous or authenticated)  
-**Description**: A shopper updates the quantity of items in their basket.
+**Description**: A shopper changes the quantity of items in their basket.
 
 ### Preconditions
 
@@ -120,28 +132,28 @@
 
 ### Basic Flow
 
-1. Shopper modifies quantity inputs for one or more basket items
-2. Shopper submits the update form
-3. System validates submitted data
+1. Shopper changes the quantity of one or more items in their basket
+2. Shopper confirms the changes
+3. System checks that the quantities are valid
 4. System retrieves the basket
-5. System updates quantities for each item; items with quantity 0 are removed
-6. System persists the basket
+5. System updates the quantities; any item set to zero is removed from the basket
+6. System saves the basket
 7. System displays the updated basket
 
 ### Alternative Flows
 
-#### A1: Validation Fails
+#### A1: Quantities Invalid
 
-- **Trigger**: In step 3, submitted data is invalid
+- **Trigger**: In step 3, the quantities entered are not valid
 - **Steps**:
-  1. System does not persist changes
-  2. System re-displays basket with validation errors
+  1. System does not save changes
+  2. System redisplays the basket and shows what needs to be corrected
 
 #### A2: Basket Not Found
 
 - **Trigger**: In step 4, basket does not exist
 - **Steps**:
-  1. System does not persist changes; no update is performed
+  1. System does not save changes; no update is performed
 
 ### Notes
 
@@ -152,7 +164,7 @@
 ## UC-005: Checkout (Create Order)
 
 **Actor**: Authenticated shopper  
-**Description**: A shopper completes checkout by converting their basket into an order.
+**Description**: A shopper completes checkout by turning their basket into an order.
 
 ### Preconditions
 
@@ -160,40 +172,38 @@
 
 ### Basic Flow
 
-1. Shopper navigates to checkout page from basket
-2. System loads basket for authenticated user
-3. System displays basket contents for review with total
-4. Shopper confirms and clicks "Pay Now"
-5. System updates basket quantities from form (if any changes)
-6. System creates order from basket: loads catalog items, builds order items with snapshot data (name, picture URI, price, quantity)
-7. System adds order to order repository
-8. System deletes the basket
-9. System redirects shopper to order success page
+1. Shopper goes to checkout
+2. System displays basket contents for review with total
+3. Shopper confirms the order and completes payment
+4. System applies any last-minute quantity changes
+5. System creates the order from the basket contents
+6. System records the order and clears the basket
+7. System takes shopper to the order confirmation
 
 ### Alternative Flows
 
 #### A1: Empty Basket on Checkout
 
-- **Trigger**: In step 6, basket has no items
+- **Trigger**: In step 5, basket has no items
 - **Steps**:
-  1. System redirects shopper to basket page
+  1. System takes shopper back to their basket
 
-#### A2: Unauthenticated Access
+#### A2: Shopper Not Signed In
 
-- **Trigger**: In step 1, shopper navigates to checkout without being signed in
+- **Trigger**: In step 1, shopper tries to checkout without being signed in
 - **Steps**:
-  1. System redirects shopper to login page
-  2. After login, shopper may return to checkout
+  1. System takes shopper to sign in
+  2. After signing in, shopper may return to checkout
 
-#### A3: Validation Fails
+#### A3: Details Invalid
 
-- **Trigger**: In step 5, submitted data is invalid
+- **Trigger**: In step 4, the quantity or other details are not valid
 - **Steps**:
-  1. System re-displays checkout form with errors
+  1. System redisplays checkout and shows what needs to be corrected
 
 ### Exception Flows
 
-- **Database Connection Lost**: If database fails during order creation or basket deletion, exception propagates; user sees error
+- **System Unable to Complete Order**: If a technical failure occurs during order creation, the shopper sees an error and the order is not completed
 
 ### Notes
 
@@ -212,17 +222,17 @@
 
 ### Basic Flow
 
-1. Shopper navigates to "My Orders"
-2. System retrieves orders for the authenticated user
-3. System displays list of orders with order details (date, items, total)
+1. Shopper goes to their order history
+2. System retrieves the shopper's orders
+3. System displays the list of orders with date, items, and total for each
 
 ### Alternative Flows
 
-#### A1: Unauthenticated Access
+#### A1: Shopper Not Signed In
 
-- **Trigger**: In step 1, shopper navigates without being signed in
+- **Trigger**: In step 1, shopper is not signed in
 - **Steps**:
-  1. System redirects shopper to login page
+  1. System takes shopper to sign in
 
 ### Notes
 
@@ -241,17 +251,17 @@
 
 ### Basic Flow
 
-1. Shopper navigates to order detail page
-2. System retrieves order with items for the authenticated user
+1. Shopper selects an order to view
+2. System retrieves the order and its items
 3. System displays order details (address, items, quantities, prices, total)
 
 ### Alternative Flows
 
-#### A1: Order Not Found or Unauthorized
+#### A1: Order Not Found or Not Theirs
 
-- **Trigger**: In step 2, order does not exist or does not belong to the user
+- **Trigger**: In step 2, order does not exist or does not belong to the shopper
 - **Steps**:
-  1. System displays error message "No such order found for this user."
+  1. System displays message that the order could not be found
 
 ### Notes
 
@@ -262,7 +272,7 @@
 ## UC-008: Sign In
 
 **Actor**: Shopper  
-**Description**: A shopper signs in to the application using email and password.
+**Description**: A shopper signs in using email and password.
 
 ### Preconditions
 
@@ -270,35 +280,35 @@
 
 ### Basic Flow
 
-1. Shopper navigates to login page
-2. System displays sign-in form with email, password, and remember-me options
-3. Shopper enters credentials and submits
-4. System validates credentials against identity store
-5. System signs in user and redirects to home page
+1. Shopper goes to sign in
+2. System displays the sign-in page
+3. Shopper enters email and password and signs in
+4. System checks the email and password
+5. System signs in the shopper and takes them to the store
 
 ### Alternative Flows
 
-#### A1: Invalid Credentials
+#### A1: Invalid Email or Password
 
-- **Trigger**: In step 4, credentials are invalid
+- **Trigger**: In step 4, email or password is incorrect
 - **Steps**:
-  1. System redisplays login form with error message
+  1. System redisplays sign-in page with error message
 
-#### A2: Two-Factor Authentication Enabled
+#### A2: Two-Factor Authentication Required
 
-- **Trigger**: In step 4, user has 2FA enabled
+- **Trigger**: In step 4, shopper has two-factor authentication enabled
 - **Steps**:
-  1. System prompts for authenticator code
-  2. User provides code
-  3. System validates and completes sign-in
+  1. System prompts for verification code
+  2. Shopper provides code
+  3. System verifies and completes sign-in
 
-#### A3: Anonymous Basket Transfer
+#### A3: Basket Transfer on Sign-In
 
-- **Trigger**: In step 5, user had items in an anonymous basket before signing in
+- **Trigger**: In step 5, shopper had items in their basket before signing in (from a previous visit)
 - **Steps**:
-  1. System merges anonymous basket items into user basket
-  2. System removes anonymous basket
-  3. System redirects user to home page
+  1. System combines those items with the shopper's account basket
+  2. System clears the temporary basket
+  3. System takes shopper to the store
 
 ### Notes
 
@@ -317,20 +327,20 @@
 
 ### Basic Flow
 
-1. Shopper navigates to register page
-2. System displays registration form (email, password, confirm password)
-3. Shopper submits valid registration data
-4. System creates user account
-5. System redirects user to login or home page
+1. Shopper goes to create an account
+2. System displays the registration page
+3. Shopper enters their details and creates their account
+4. System creates the account
+5. System takes user to sign in or to the store
 
 ### Alternative Flows
 
 #### A1: Email Confirmation Required
 
-- **Trigger**: In step 4, system is configured to require email confirmation
+- **Trigger**: In step 4, the store requires email confirmation before signing in
 - **Steps**:
-  1. System sends confirmation email
-  2. System redirects user with message to check email
+  1. System sends a confirmation email
+  2. System shows a message asking the user to check their email
 
 ### Notes
 
@@ -349,26 +359,25 @@
 
 ### Basic Flow
 
-1. User navigates to account profile page
-2. System loads current user profile (username, email, phone, email confirmed status)
-3. System displays profile form
-4. User updates email and/or phone number and submits
-5. System validates and persists changes
-6. System displays success message and updated profile
+1. User goes to their account settings
+2. System displays the user's current profile information
+3. User changes email and/or phone number and saves
+4. System saves the changes
+5. System displays a success message and the updated profile
 
 ### Alternative Flows
 
-#### A1: Email Update Fails
+#### A1: Email Update Cannot Be Completed
 
-- **Trigger**: In step 5, email update cannot be completed
+- **Trigger**: In step 4, the email change cannot be saved
 - **Steps**:
-  1. System redisplays form with error message
+  1. System redisplays the page with an error message
 
-#### A2: Phone Update Fails
+#### A2: Phone Update Cannot Be Completed
 
-- **Trigger**: In step 5, phone update cannot be completed
+- **Trigger**: In step 4, the phone change cannot be saved
 - **Steps**:
-  1. System redisplays form with error message
+  1. System redisplays the page with an error message
 
 ### Notes
 
@@ -379,7 +388,7 @@
 ## UC-011: Create Catalog Item (Admin)
 
 **Actor**: Admin  
-**Description**: An administrator creates a new catalog item via the Admin UI.
+**Description**: An administrator adds a new product to the catalog.
 
 ### Preconditions
 
@@ -387,29 +396,27 @@
 
 ### Basic Flow
 
-1. Admin navigates to admin catalog list
-2. Admin clicks Create
-3. Admin enters catalog item details (name, description, price, brand, type, picture URI)
-4. Admin submits
-5. Admin application submits create request to system
-6. System validates request (name, price, image if provided)
-7. System creates catalog item
-8. System returns created item with ID
-9. Admin sees updated catalog list
+1. Admin goes to the product catalog
+2. Admin requests to add a new product
+3. Admin enters product details (name, description, price, brand, type, image)
+4. Admin saves the new product
+5. System checks that required fields are present and valid
+6. System adds the product to the catalog
+7. Admin sees the updated catalog with the new product
 
 ### Alternative Flows
 
-#### A1: Unauthorized
+#### A1: Not Authorized
 
-- **Trigger**: In step 6, user does not have admin role
+- **Trigger**: In step 5, the user does not have permission to add products
 - **Steps**:
-  1. System denies request; admin sees unauthorized message
+  1. System denies the request and shows an error message
 
-#### A2: Validation Failure
+#### A2: Details Invalid
 
-- **Trigger**: In step 6, required fields missing or invalid (e.g., negative price)
+- **Trigger**: In step 5, required fields are missing or invalid (e.g., negative price)
 - **Steps**:
-  1. System returns validation errors; form redisplays with errors
+  1. System redisplays the form and shows what needs to be corrected
 
 ### Notes
 
@@ -420,7 +427,7 @@
 ## UC-012: Update Catalog Item (Admin)
 
 **Actor**: Admin  
-**Description**: An administrator updates an existing catalog item.
+**Description**: An administrator updates an existing product in the catalog.
 
 ### Preconditions
 
@@ -428,22 +435,20 @@
 
 ### Basic Flow
 
-1. Admin navigates to admin catalog list
-2. Admin clicks Edit on a catalog item
-3. Admin modifies fields (name, description, price, brand, type, picture)
-4. Admin submits
-5. Admin application submits update request to system
-6. System loads existing item, applies updates, persists
-7. System returns updated item
-8. Admin sees updated catalog list
+1. Admin goes to the product catalog
+2. Admin selects a product to edit
+3. Admin changes the product details (name, description, price, brand, type, image)
+4. Admin saves the changes
+5. System saves the updated product
+6. Admin sees the updated catalog
 
 ### Alternative Flows
 
-#### A1: Catalog Item Not Found
+#### A1: Product Not Found
 
-- **Trigger**: In step 6, catalog item does not exist
+- **Trigger**: In step 5, the product no longer exists
 - **Steps**:
-  1. System returns not found; admin sees error message
+  1. System shows an error message that the product could not be found
 
 ### Notes
 
@@ -454,7 +459,7 @@
 ## UC-013: Delete Catalog Item (Admin)
 
 **Actor**: Admin  
-**Description**: An administrator deletes a catalog item.
+**Description**: An administrator removes a product from the catalog.
 
 ### Preconditions
 
@@ -462,20 +467,19 @@
 
 ### Basic Flow
 
-1. Admin navigates to admin catalog list
-2. Admin clicks Delete on a catalog item
-3. Admin confirms deletion
-4. Admin application submits delete request to system
-5. System deletes catalog item
-6. Admin sees updated catalog list
+1. Admin goes to the product catalog
+2. Admin selects a product to remove
+3. Admin confirms removal
+4. System removes the product from the catalog
+5. Admin sees the updated catalog
 
 ### Alternative Flows
 
-#### A1: Catalog Item Not Found
+#### A1: Product Not Found
 
-- **Trigger**: In step 5, catalog item does not exist
+- **Trigger**: In step 4, the product no longer exists
 - **Steps**:
-  1. System returns not found; admin sees error message
+  1. System shows an error message that the product could not be found
 
 ### Notes
 
@@ -486,7 +490,7 @@
 ## UC-014: List Catalog Items (Admin API)
 
 **Actor**: Admin (via Admin application)  
-**Description**: Retrieve paginated catalog items for admin display.
+**Description**: Retrieve the list of products for the admin catalog view.
 
 ### Preconditions
 
@@ -494,9 +498,9 @@
 
 ### Basic Flow
 
-1. Admin application requests catalog list with optional page index and page size
-2. System returns paged list of catalog items (ID, name, description, price, picture URI, brand, type)
-3. Admin application displays catalog list
+1. Admin application requests the product list (optionally for a specific page)
+2. System returns the list of products with details (name, description, price, image, brand, type)
+3. Admin application displays the catalog
 
 ### Notes
 
@@ -507,7 +511,7 @@
 ## UC-015: Authenticate (Public API)
 
 **Actor**: Admin application (or API client)  
-**Description**: Obtain authentication token for Admin API access.
+**Description**: Sign in to access the Admin API.
 
 ### Preconditions
 
@@ -515,19 +519,19 @@
 
 ### Basic Flow
 
-1. Client submits email and password
-2. System validates credentials
-3. System generates token with user claims (including admin role if applicable)
-4. System returns token and user info
-5. Client uses token for subsequent API calls
+1. Client provides email and password
+2. System checks the email and password
+3. System issues an access token (including admin permissions when applicable)
+4. System returns the token and user information
+5. Client uses the token for subsequent requests
 
 ### Alternative Flows
 
-#### A1: Invalid Credentials
+#### A1: Invalid Email or Password
 
-- **Trigger**: In step 2, credentials are invalid
+- **Trigger**: In step 2, email or password is incorrect
 - **Steps**:
-  1. System denies request; client receives unauthorized response
+  1. System denies the request
 
 ### Notes
 

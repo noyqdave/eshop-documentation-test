@@ -677,6 +677,32 @@ public class PropertySourceDebugHook {
 - **Alternative Flows**: Specific failure scenarios with clear triggers
 - **Exception Flows**: Only execution exceptions
 
+### 6. Intent vs Implementation Details
+
+#### ✅ **Correct Approach**
+- Describe **intent** (what the actor wants), not UI mechanics (clicks, buttons, form fields)
+- Use plain English that a person using the system would understand—someone with no knowledge of its inner workings
+- Basic flow should reflect the **most common path**; rarer cases belong in alternative flows
+- Avoid implementation details: cookies, session IDs, database, HTTP, repositories, "redirects," "persists," technical field names
+
+#### ❌ **Anti-Pattern**
+```markdown
+2. Shopper clicks "Add to Basket" on the product
+3. System retrieves or creates a basket for the shopper (by buyer ID from cookie or username)
+6. System persists the basket
+7. System redirects shopper to the basket page
+```
+
+#### ✅ **Correct Pattern**
+```markdown
+2. Shopper requests to add the product to their basket
+3. System retrieves the shopper's basket
+6. System saves the basket
+7. System takes shopper to their basket
+```
+
+(If the shopper usually has a basket, "creates a new basket" belongs in an alternative flow.)
+
 ---
 
 ## Common Anti-Patterns to Avoid
@@ -691,6 +717,9 @@ public class PropertySourceDebugHook {
 2. **Conditional logic in basic flows** → Keep basic flows clean
 3. **System unavailable in exception flows** → This is a precondition failure
 4. **Missing step references in alternative flows** → Always specify which step triggers the alternative
+5. **UI details instead of intent** → Describe what the actor wants (e.g., "requests to add product to basket"), not how they do it (e.g., "clicks Add to Basket")
+6. **Implementation details** → Avoid cookies, session IDs, "persists," "redirects," technical field names; use plain English a shopper would understand
+7. **Rare path in basic flow** → Put the most common path in basic flow; "creates basket" when shopper usually has one belongs in an alternative flow
 
 ### BDD Scenarios
 1. **Technical implementation details** → Focus on business intent
@@ -724,6 +753,8 @@ public class PropertySourceDebugHook {
 - [ ] Alternative flows have clear triggers with step references (see [Alternative Flow Triggers](#3-alternative-flow-triggers))
 - [ ] Exception flows contain only execution exceptions (see [Exception Flows vs Alternative Flows](#4-exception-flows-vs-alternative-flows))
 - [ ] No redundant information with other documentation (see [DRY](#3-dry-dont-repeat-yourself))
+- [ ] Steps describe intent, not UI mechanics (see [Intent vs Implementation Details](#6-intent-vs-implementation-details))
+- [ ] Plain English for the actor; no implementation details (cookies, "persists," "redirects," etc.)
 
 ### BDD Scenarios
 - [ ] Written in problem space (see [Problem Space vs Solution Space](#1-problem-space-vs-solution-space))
