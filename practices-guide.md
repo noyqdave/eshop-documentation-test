@@ -546,6 +546,48 @@ public class PropertySourceDebugHook {
 
 ---
 
+## Architecture Documentation
+
+**Note on Project Context**: Architecture diagrams should clearly distinguish structural views (what exists) from behavioral views (what happens). Use the appropriate diagram type for each purpose.
+
+### 1. Structural vs Dynamic Diagrams
+
+#### ✅ **Correct Approach**
+- **Structural diagrams** describe system composition and organization—what components, packages, or deployment nodes exist and how they relate
+- Use the right diagram type for structure: class diagrams, component diagrams, deployment diagrams, or package diagrams
+- **Dynamic diagrams** (flowcharts, sequence diagrams, state diagrams) describe behavior—flow, interactions, or state transitions over time
+
+#### ❌ **Anti-Pattern**
+- Using flowcharts to represent structure (e.g., solution layout, dependency graph, deployment topology)
+- Flowcharts show flow and process; they are dynamic, not structural
+
+#### ✅ **Correct Pattern**
+| Purpose | Diagram Type | Example |
+|---------|--------------|---------|
+| Domain model | Class diagram | Entities, value objects, relationships |
+| Module/project structure | Component diagram, package diagram | Solution structure, project dependencies |
+| Deployment topology | Deployment diagram | Containers, nodes, runtime environment |
+| Request flows, scenarios | Sequence diagram | Message passing between participants |
+| Process steps | Flowchart, sequence diagram | Steps and decisions |
+
+### 2. Logical vs Physical Sequence Diagrams
+
+#### ✅ **Correct Approach**
+- **Physical sequence diagrams** show interactions between infrastructure and platform elements: Browser, Web server, API, Database, etc. They describe how requests flow through the system at runtime.
+- **Logical sequence diagrams** show interactions between domain entities and services: BasketService, Basket, Order, OrderItem, etc. They describe how domain concepts collaborate to fulfill use cases.
+- Document both levels for key flows: physical for request/runtime behavior, logical for domain behavior.
+
+#### ❌ **Anti-Pattern**
+- Documenting only physical interactions (Web → API → DB) while omitting domain entity interactions
+- Assuming that process-view sequence diagrams sufficiently describe the domain
+
+#### ✅ **Correct Pattern**
+- **Process view**: Sequence diagrams with participants like Browser, Web, PublicApi, SQL Server
+- **Logical view**: Sequence diagrams with participants like BasketService, Basket, BasketItem, OrderService, Order, OrderItem
+- For important flows (add to basket, checkout, basket transfer), include logical interaction diagrams showing domain entities
+
+---
+
 ## Use Case Specifications
 
 **Note on Project Context**: The practices below reflect the discipline required to derive clear, accurate documentation from working code.
@@ -639,6 +681,11 @@ public class PropertySourceDebugHook {
 
 ## Common Anti-Patterns to Avoid
 
+### Architecture Documentation
+1. **Using flowcharts for structure** → Use class, component, deployment, or package diagrams
+2. **Only physical sequence diagrams** → Add logical sequence diagrams for domain entity interactions on key flows
+3. **Confusing structural with dynamic** → Structural = composition; dynamic = behavior over time
+
 ### Use Case Specifications
 1. **Feature flags in preconditions** → Move to runtime validation
 2. **Conditional logic in basic flows** → Keep basic flows clean
@@ -665,6 +712,11 @@ public class PropertySourceDebugHook {
 ---
 
 ## Quality Checklist
+
+### Architecture Documentation
+- [ ] Structural views use structural diagram types (class, component, deployment, package) (see [Structural vs Dynamic Diagrams](#1-structural-vs-dynamic-diagrams))
+- [ ] Dynamic views use sequence diagrams or flowcharts (see [Structural vs Dynamic Diagrams](#1-structural-vs-dynamic-diagrams))
+- [ ] Key flows have both physical (request/runtime) and logical (domain entity) sequence diagrams (see [Logical vs Physical Sequence Diagrams](#2-logical-vs-physical-sequence-diagrams))
 
 ### Use Case Specifications
 - [ ] Preconditions contain only system operational requirements (see [Preconditions vs Runtime Validation](#1-preconditions-vs-runtime-validation))
@@ -696,5 +748,4 @@ public class PropertySourceDebugHook {
 
 ## References
 - Use case specifications: [Use Case Specifications](use-case-specifications.md)
-- BDD scenarios: [BDD Scenarios](bdd-scenarios.md)
-- Architecture documentation: [Architecture Overview](../ARCHITECTURE.md)
+- Architecture documentation: [4+1 Architecture Views](architecture-4plus1.md)
